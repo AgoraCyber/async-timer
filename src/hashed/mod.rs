@@ -10,6 +10,7 @@ use timewheel::*;
 
 #[derive(Clone)]
 pub struct TimerExecutor {
+    tick_duration: Duration,
     inner: Arc<Mutex<TimerExecutorImpl>>,
 }
 
@@ -30,12 +31,12 @@ impl TimerExecutorImpl {
         }
     }
 
-    fn create_timer(&mut self, duration: Duration) -> usize {
+    fn create_timer(&mut self, duration: u64) -> usize {
         self.timer_id_seq += 1;
 
         let timer = self.timer_id_seq;
 
-        self.wheel.add(duration.as_secs(), timer);
+        self.wheel.add(duration, timer);
 
         timer
     }
@@ -81,12 +82,21 @@ impl TimerExecutor {
             }
         });
 
-        Self { inner }
+        Self {
+            inner,
+            tick_duration,
+        }
     }
 
     /// Create a new timeout future instance.
     pub fn timeout(&self, duration: Duration) -> Timeout {
-        let timer_id = self.inner.lock().unwrap().create_timer(duration);
+        let mut ticks = duration.as_millis() / self.tick_duration.as_millis();
+
+        if ticks == 0 {
+            ticks = 1;
+        }
+
+        let timer_id = self.inner.lock().unwrap().create_timer(ticks as u64);
 
         Timeout {
             timer_id,
