@@ -77,7 +77,7 @@ impl TimerExecutor {
             let mut inaccuracy: u128 = 0;
             // When no other strong reference is alive, stop tick thread
             while Arc::strong_count(&inner_tick) > 1 {
-                // correct [`std::thread::sleep`] inaccuracy
+                // Correct the cumulative deviation
                 let call_times = inaccuracy / tick_duration.as_millis() + 1;
 
                 inaccuracy = inaccuracy % tick_duration.as_millis();
