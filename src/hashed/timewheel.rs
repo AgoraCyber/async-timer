@@ -24,14 +24,27 @@ impl<T: Clone + Default> TimeWheel<T> {
     }
 
     pub fn add(&mut self, timeout: u64, value: T) {
+        log::trace!(
+            "add timeout({}) steps({}) tick({})",
+            timeout,
+            self.steps,
+            self.tick
+        );
+
         let slot = (timeout + self.tick) % self.steps;
+        let round = timeout / self.steps;
+
+        log::trace!(
+            "add timeout({}) to slot({}) with round({}), current tick is {}",
+            timeout,
+            slot,
+            round,
+            self.tick
+        );
 
         let slots = self.hashed.entry(slot).or_insert(Vec::new());
 
-        slots.push(Slot {
-            t: value,
-            round: (timeout + self.tick) / self.steps,
-        });
+        slots.push(Slot { t: value, round });
     }
 
     pub fn tick(&mut self) -> Poll<Vec<T>> {
@@ -54,9 +67,13 @@ impl<T: Clone + Default> TimeWheel<T> {
                 }
             }
 
-            self.hashed.insert(step, reserved);
+            if !reserved.is_empty() {
+                self.hashed.insert(step, reserved);
+            }
 
-            return Poll::Ready(current);
+            if !current.is_empty() {
+                return Poll::Ready(current);
+            }
         }
 
         Poll::Pending

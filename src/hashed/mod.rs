@@ -2,7 +2,7 @@ use std::{
     collections::{HashMap, HashSet},
     sync::{Arc, Mutex},
     task::{Poll, Waker},
-    time::Duration,
+    time::{Duration, Instant},
 };
 
 mod timewheel;
@@ -74,11 +74,22 @@ impl TimerExecutor {
         let inner_tick = inner.clone();
 
         std::thread::spawn(move || {
+            let mut inaccuracy: u128 = 0;
             // When no other strong reference is alive, stop tick thread
             while Arc::strong_count(&inner_tick) > 1 {
-                inner_tick.lock().unwrap().tick();
+                // correct [`std::thread::sleep`] inaccuracy
+                let call_times = inaccuracy / tick_duration.as_millis() + 1;
+
+                inaccuracy = inaccuracy % tick_duration.as_millis();
+
+                let now = Instant::now();
+
+                for _ in 0..call_times {
+                    inner_tick.lock().unwrap().tick();
+                }
 
                 std::thread::sleep(tick_duration);
+                inaccuracy += now.elapsed().as_millis() - tick_duration.as_millis();
             }
         });
 
@@ -147,5 +158,39 @@ pub fn global_timer_executor() -> &'static TimerExecutor {
 
     static INSTANCE: OnceCell<TimerExecutor> = OnceCell::new();
 
-    INSTANCE.get_or_init(|| TimerExecutor::new(3600, Duration::from_millis(10)))
+    INSTANCE.get_or_init(|| TimerExecutor::new(3600, Duration::from_millis(100)))
+}
+
+#[cfg(test)]
+mod tests {
+    use std::time::{Duration, Instant};
+
+    use crate::Timer;
+
+    use super::Timeout;
+
+    #[async_std::test]
+    async fn test() {
+        _ = pretty_env_logger::try_init();
+
+        async fn test_timeout(duration: Duration) {
+            let now = Instant::now();
+
+            Timeout::new(duration).await;
+
+            let elapsed = now.elapsed();
+
+            log::debug!("system time elapsed {:?}", elapsed);
+
+            assert_eq!(elapsed.as_secs(), duration.as_secs());
+        }
+
+        test_timeout(Duration::from_secs(2)).await;
+
+        test_timeout(Duration::from_secs(4)).await;
+
+        test_timeout(Duration::from_secs(10)).await;
+
+        test_timeout(Duration::from_secs(60)).await;
+    }
 }
