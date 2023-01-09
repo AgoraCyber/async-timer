@@ -66,20 +66,18 @@ impl TimerExecutorImpl {
 }
 
 impl TimerExecutor {
-    pub fn new(step: u64) -> Self {
+    pub fn new(step: u64, tick_duration: Duration) -> Self {
         let inner: Arc<Mutex<TimerExecutorImpl>> =
             Arc::new(Mutex::new(TimerExecutorImpl::new(step)));
 
         let inner_tick = inner.clone();
 
         std::thread::spawn(move || {
-            let duration = std::time::Duration::new(1, 0);
-
             // When no other strong reference is alive, stop tick thread
             while Arc::strong_count(&inner_tick) > 1 {
                 inner_tick.lock().unwrap().tick();
 
-                std::thread::sleep(duration);
+                std::thread::sleep(tick_duration);
             }
         });
 
@@ -139,5 +137,5 @@ pub fn global_timer_executor() -> &'static TimerExecutor {
 
     static INSTANCE: OnceCell<TimerExecutor> = OnceCell::new();
 
-    INSTANCE.get_or_init(|| TimerExecutor::new(3600))
+    INSTANCE.get_or_init(|| TimerExecutor::new(3600, Duration::from_millis(10)))
 }
