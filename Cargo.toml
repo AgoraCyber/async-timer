@@ -1,7 +1,14 @@
 [package]
-name = "async-timer"
+name = "async-timer-rs"
 version = "0.1.0"
 edition = "2021"
+license-file = "LICENSE"
+keywords = ["futures-rs", "async","timer"]
+description = "**Hashed timer wheel** implementation compatible with asynchronous tasks, support async_std/tokio and other futures base framework"
+documentation = "https://docs.rs/async-timer-rs"
+readme = "README.md"
+homepage = "https://github.com/AgoraCyber/async-timer"
+repository = "https://github.com/AgoraCyber/async-timer"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
